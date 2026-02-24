@@ -92,3 +92,47 @@ class GoodStreamPlatform(BasePlatform):
     def transform_segment(self, data: bytes, url: str):
         # GoodStream sirve .ts limpios, sin ofuscación
         return self._detect_type(data)
+
+    def filter_master(self, content: bytes) -> bytes:
+        """
+        Filtra el master.m3u8 para eliminar variantes de solo audio.
+        Kodi a veces elige la variante de audio si está disponible.
+        Solo mantiene las variantes con video (index-v*-a*.m3u8).
+        """
+        text = content.decode('utf-8', errors='ignore')
+        lines = text.split('\n')
+        filtered = []
+        i = 0
+        removed = 0
+        
+        while i < len(lines):
+            line = lines[i]
+            
+            # Si es un tag de stream-info, verificar si la URL es de solo audio
+            if line.startswith('#EXT-X-STREAM-INF'):
+                # Verificar la siguiente línea (URL del stream)
+                if i + 1 < len(lines):
+                    next_url = lines[i + 1].strip()
+                    # Solo audio: index-a1.m3u8 o index-a2.m3u8 (sin -v)
+                    # Video+audio: index-v1-a1.m3u8
+                    is_audio_only = 'index-a' in next_url and '-v' not in next_url
+                    
+                    if is_audio_only:
+                        # Saltar esta línea y la siguiente (URL de solo audio)
+                        print(f"      🗑️  Eliminando: {next_url[-50:]}")
+                        removed += 1
+                        i += 2
+                        continue
+                
+                # Si no es solo audio, agregar el tag y la URL
+                filtered.append(line)
+                i += 1
+            else:
+                # Agregar cualquier otra línea
+                filtered.append(line)
+                i += 1
+        
+        if removed > 0:
+            print(f"      ✂️  {removed} variantes de audio eliminadas")
+        
+        return '\n'.join(filtered).encode('utf-8')
