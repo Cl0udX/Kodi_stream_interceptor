@@ -42,18 +42,38 @@ KodiPlay Android permite interceptar streams de video desde tu dispositivo Andro
 
 ### Paso 2: Instalar dependencias
 
+**IMPORTANTE:** mitmproxy no funciona correctamente en Termux nativo. Usamos Ubuntu via proot-distro.
+
 Abre Termux y ejecuta:
 
 ```bash
 # Actualizar paquetes
 pkg update && pkg upgrade -y
 
-# Instalar Python y herramientas
-pkg install python python-pip git wget curl termux-api -y
+# Instalar proot-distro
+pkg install proot-distro git wget curl termux-api -y
 
-# Instalar dependencias de Python
-pip install mitmproxy yt-dlp streamlink
+# Instalar Ubuntu
+proot-distro install ubuntu
 ```
+
+### Paso 3: Configurar Ubuntu
+
+```bash
+# Entrar a Ubuntu
+proot-distro login ubuntu
+
+# Dentro de Ubuntu, ejecutar:
+apt update && apt upgrade -y
+apt install -y python3 python3-pip python3-venv git wget curl build-essential libffi-dev libssl-dev
+pip3 install --upgrade pip
+pip3 install mitmproxy yt-dlp streamlink
+
+# Salir de Ubuntu
+exit
+```
+
+> **Nota:** La instalación de `mitmproxy` puede tardar varios minutos.
 
 ### Paso 3: Clonar el proyecto
 
@@ -92,10 +112,29 @@ Luego en Android:
 ### Iniciar KodiPlay
 
 ```bash
+# Desde Termux (ejecuta dentro de Ubuntu)
 kodiplay
+
 # O manualmente:
-cd ~/kodiplay && python kodi_android.py
+cd ~/kodiplay && ./start_ubuntu.sh
+
+# O entrando a Ubuntu directamente:
+proot-distro login ubuntu
+cd /root/kodiplay
+python3 kodi_android.py
 ```
+
+### Configurar Proxy del Sistema
+
+**IMPORTANTE:** En Android necesitas configurar el proxy manualmente:
+
+1. Ve a **Configuración → WiFi**
+2. Mantén presionada tu red WiFi
+3. Selecciona **Modificar red → Opciones avanzadas**
+4. En **Proxy**, selecciona **Manual**
+5. Configura:
+   - **Hostname:** `127.0.0.1`
+   - **Port:** `8082`
 
 ### Abrir la interfaz web
 
@@ -109,10 +148,12 @@ La IP se muestra en Termux al iniciar la app.
 ### Flujo de uso
 
 1. **Conectar Kodi:** Ingresa la IP de tu Kodi (ej: `192.168.1.100:8080`)
-2. **Iniciar Interceptor:** Presiona "INICIAR"
-3. **Cargar película:** Abre tu navegador y ve a la página de la película
-4. **Enviar a Kodi:** Cuando el video cargue, presiona "ENVIAR A KODI"
-5. **Detener:** Presiona "DETENER" cuando termines
+2. **Configurar Proxy:** Configura el proxy WiFi a `127.0.0.1:8082`
+3. **Iniciar Interceptor:** Presiona "INICIAR"
+4. **Cargar película:** Abre tu navegador y ve a la página de la película
+5. **Enviar a Kodi:** Cuando el video cargue, presiona "ENVIAR A KODI"
+6. **Detener:** Presiona "DETENER" cuando termines
+7. **Restaurar Proxy:** Quita el proxy del WiFi cuando termines
 
 ## 🎨 Widget Flotante
 
