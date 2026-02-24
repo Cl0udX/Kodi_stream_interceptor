@@ -5,7 +5,7 @@
 # Uso: play [opciones] "URL"
 
 # ─── Configuración por defecto ───────────────────────────────────────────────
-DEFAULT_KODI_IP="192.168.128.4"
+DEFAULT_KODI_IP="127.0.0.1"
 DEFAULT_KODI_PORT="8080"
 
 # ─── Ayuda ───────────────────────────────────────────────────────────────────

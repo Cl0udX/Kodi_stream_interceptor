@@ -25,9 +25,10 @@ BG        = "#0e0e16"
 SURFACE   = "#16161f"
 SURFACE2  = "#1e1e2e"
 BORDER    = "#2a2a3e"
-ACCENT    = "#e8ff47"
+ACCENT    = "#bc7d00"
 ACCENT2   = "#ff4757"
-TEXT      = "#e8e8f0"
+TEXT      = "#000000"
+WHITE     = "#e8e8f0"
 MUTED     = "#55556a"
 GREEN     = "#4eff91"
 FONT_MAIN = "SF Pro Display"
@@ -210,7 +211,7 @@ class FormatSelector(tk.Toplevel):
         sb.pack(side="right", fill="y")
 
         self.listbox = tk.Listbox(
-            list_frame, font=(FONT_MONO, 10), bg=SURFACE, fg=TEXT,
+            list_frame, font=(FONT_MONO, 10), bg=SURFACE, fg=WHITE,
             selectbackground=SURFACE2, selectforeground=ACCENT,
             relief="flat", bd=0, highlightthickness=0, activestyle="none",
             yscrollcommand=sb.set
@@ -239,7 +240,7 @@ class FormatSelector(tk.Toplevel):
                   command=self.confirm).pack(side="left")
 
         tk.Button(btn_frame, text="Auto (recomendado)",
-                  font=(FONT_MONO, 10), bg=SURFACE2, fg=TEXT,
+                  font=(FONT_MONO, 10), bg=SURFACE2, fg=WHITE,
                   relief="flat", padx=16, pady=8, cursor="hand2",
                   command=self.auto_select).pack(side="left", padx=(8, 0))
 
@@ -293,7 +294,7 @@ class KodiPlay(tk.Tk):
         tk.Label(header, text="KODI", font=(FONT_MAIN, 28, "bold"),
                  fg=ACCENT, bg=BG).pack(side="left")
         tk.Label(header, text="PLAY", font=(FONT_MAIN, 28, "bold"),
-                 fg=TEXT, bg=BG).pack(side="left", padx=(2, 0))
+                 fg=WHITE, bg=BG).pack(side="left", padx=(2, 0))
 
         self.status_dot = tk.Label(header, text="●", font=("", 10), fg=MUTED, bg=BG)
         self.status_dot.pack(side="right", pady=4)
@@ -326,7 +327,7 @@ class KodiPlay(tk.Tk):
         man_row.pack(fill="x", pady=(6, 0))
 
         self.ip_entry = tk.Entry(man_row, font=(FONT_MONO, 10),
-                                  bg=SURFACE, fg=MUTED, insertbackground=TEXT,
+                                  bg=SURFACE, fg=MUTED, insertbackground=WHITE,
                                   relief="flat", highlightthickness=1,
                                   highlightbackground=BORDER, highlightcolor=ACCENT)
         self.ip_entry.insert(0, "IP manual (ej: 192.168.1.100:8080)")
@@ -351,7 +352,7 @@ class KodiPlay(tk.Tk):
 
         self.url_var   = tk.StringVar()
         self.url_entry = tk.Entry(url_row, textvariable=self.url_var,
-                                   font=(FONT_MONO, 11), bg=SURFACE, fg=TEXT,
+                                   font=(FONT_MONO, 11), bg=SURFACE, fg=WHITE,
                                    insertbackground=ACCENT, relief="flat",
                                    highlightthickness=1, highlightbackground=BORDER,
                                    highlightcolor=ACCENT)
@@ -372,7 +373,7 @@ class KodiPlay(tk.Tk):
                        variable=self.ask_format_var,
                        font=(FONT_MONO, 9), fg=MUTED, bg=BG,
                        selectcolor=SURFACE2, activebackground=BG,
-                       activeforeground=TEXT).pack(side="left")
+                       activeforeground=WHITE).pack(side="left")
 
         # Botones
         btn_frame = tk.Frame(self, bg=BG)
@@ -383,7 +384,10 @@ class KodiPlay(tk.Tk):
         self.play_btn.pack(side="left", fill="x", expand=True, padx=(0, 6))
 
         self._mk_btn(btn_frame, "+ COLA", SURFACE2, TEXT,
-                     self.add_queue).pack(side="left")
+                     self.add_queue).pack(side="left", padx=(0, 6))
+        
+        self._mk_btn(btn_frame, "🔧 Interceptor", SURFACE2, ACCENT,
+                     self.open_interceptor).pack(side="left")
 
         # Controles playback
         ctrl = tk.Frame(self, bg=SURFACE)
@@ -423,9 +427,21 @@ class KodiPlay(tk.Tk):
 
         style = ttk.Style()
         style.theme_use("clam")
-        style.configure("TCombobox", fieldbackground=SURFACE, background=SURFACE,
-                        foreground=TEXT, selectbackground=SURFACE2,
-                        bordercolor=BORDER, arrowcolor=MUTED)
+        style.configure("TCombobox", 
+                        fieldbackground=SURFACE, 
+                        background=SURFACE2,
+                        foreground=WHITE, 
+                        selectbackground=ACCENT,
+                        selectforeground="#000",
+                        bordercolor=BORDER, 
+                        arrowcolor=ACCENT,
+                        darkcolor=SURFACE,
+                        lightcolor=SURFACE)
+        style.map("TCombobox",
+                  fieldbackground=[('readonly', SURFACE)],
+                  selectbackground=[('readonly', ACCENT)],
+                  selectforeground=[('readonly', '#000')])
+        style.configure("TScale", background=BG, troughcolor=SURFACE2)
 
     def _mk_btn(self, parent, text, bg, fg, cmd, big=False):
         return tk.Button(parent, text=text,
@@ -437,7 +453,7 @@ class KodiPlay(tk.Tk):
     def _clear_ip_placeholder(self, e):
         if self.ip_entry.get().startswith("IP"):
             self.ip_entry.delete(0, "end")
-            self.ip_entry.config(fg=TEXT)
+            self.ip_entry.config(fg=WHITE)
 
     # ── Log / Status ─────────────────────────────────────────────────────────
     def log_msg(self, msg, tag="info"):
@@ -691,6 +707,221 @@ class KodiPlay(tk.Tk):
         if d:
             kodi_request(d["ip"], d["port"],
                          "Application.SetVolume", {"volume": int(float(val))})
+    
+    # ── Interceptor ──────────────────────────────────────────────────────────
+    def open_interceptor(self):
+        if not self.selected_device:
+            self.log_msg("Selecciona un dispositivo primero", "err")
+            return
+        InterceptorWindow(self, self.selected_device)
+
+
+# ─── Ventana Interceptor ─────────────────────────────────────────────────────
+class InterceptorWindow(tk.Toplevel):
+    def __init__(self, parent, device):
+        super().__init__(parent)
+        self.title("Interceptor de Streams")
+        self.geometry("500x400")
+        self.configure(bg=BG)
+        self.resizable(False, False)
+        
+        self.parent = parent
+        self.device = device
+        self.interceptor_proc = None
+        self.interceptor_running = False
+        self.stream_ready = False
+        
+        self._build_ui()
+        
+    def _build_ui(self):
+        # Header
+        tk.Label(self, text="INTERCEPTOR DE STREAMS OFUSCADOS",
+                 font=(FONT_MONO, 12, "bold"), fg=ACCENT, bg=BG).pack(pady=(20, 10))
+        
+        # Estado
+        status_frame = tk.Frame(self, bg=SURFACE, padx=16, pady=12)
+        status_frame.pack(fill="x", padx=20, pady=(0, 12))
+        
+        self.status_dot = tk.Label(status_frame, text="●", font=("", 16), fg=MUTED, bg=SURFACE)
+        self.status_dot.pack(side="left")
+        self.status_lbl = tk.Label(status_frame, text="Interceptor detenido",
+                                    font=(FONT_MONO, 11), fg=MUTED, bg=SURFACE)
+        self.status_lbl.pack(side="left", padx=12)
+        
+        # Botones
+        btn_row = tk.Frame(self, bg=BG)
+        btn_row.pack(fill="x", padx=20, pady=8)
+        
+        self.btn_start = tk.Button(btn_row, text="▶ INICIAR", font=(FONT_MONO, 11, "bold"),
+                                    bg=GREEN, fg="#000", relief="flat", padx=16, pady=10,
+                                    command=self.start_interceptor)
+        self.btn_start.pack(side="left", fill="x", expand=True)
+        
+        self.btn_stop = tk.Button(btn_row, text="⏹ DETENER", font=(FONT_MONO, 10),
+                                   bg=ACCENT2, fg="#fff", relief="flat", padx=12, pady=10,
+                                   command=self.stop_interceptor, state="disabled")
+        self.btn_stop.pack(side="left", padx=(8, 0))
+        
+        # Stream listo
+        stream_frame = tk.Frame(self, bg=SURFACE2, padx=16, pady=12)
+        stream_frame.pack(fill="x", padx=20, pady=(0, 12))
+        
+        self.stream_status = tk.Label(stream_frame, text="Esperando stream...",
+                                       font=(FONT_MONO, 10), fg=MUTED, bg=SURFACE2)
+        self.stream_status.pack(side="left")
+        
+        self.btn_send = tk.Button(stream_frame, text="📤 ENVIAR A KODI", font=(FONT_MONO, 10, "bold"),
+                                   bg=ACCENT, fg="#000", relief="flat", padx=12, pady=6,
+                                   command=self.send_to_kodi, state="disabled")
+        self.btn_send.pack(side="right")
+        
+        # Instrucciones
+        tk.Label(self, text="INSTRUCCIONES:", font=(FONT_MONO, 9), fg=MUTED, bg=BG).pack(anchor="w", padx=20, pady=(8, 4))
+        instructions = """1. Presiona INICIAR
+2. Abre tu navegador y carga la película
+3. Espera a que el stream esté listo (verde)
+4. Presiona ENVIAR A KODI"""
+        tk.Label(self, text=instructions, font=(FONT_MONO, 9), fg=WHITE, bg=BG, justify="left").pack(anchor="w", padx=20)
+        
+        # Log
+        self.log = tk.Text(self, bg=SURFACE, fg=MUTED, font=(FONT_MONO, 9),
+                           relief="flat", state="disabled", wrap="word", height=6)
+        self.log.pack(fill="both", expand=True, padx=20, pady=(12, 20))
+        for tag, color in [("ok", GREEN), ("err", ACCENT2), ("info", TEXT)]:
+            self.log.tag_config(tag, foreground=color)
+    
+    def log_msg(self, msg, tag="info"):
+        self.log.configure(state="normal")
+        self.log.insert("end", f"› {msg}\n", tag)
+        self.log.see("end")
+        self.log.configure(state="disabled")
+    
+    def start_interceptor(self):
+        # Actualizar config
+        config_path = os.path.join(os.path.dirname(__file__), "stream_interceptor", "config.py")
+        config_content = f'''KODI_IP = "{self.device['ip']}"
+KODI_PORT = {self.device['port']}
+LOCAL_PROXY_PORT = 8888
+MITMPROXY_PORT = 8082
+PREFETCH_CONCURRENCY = 10
+'''
+        with open(config_path, 'w') as f:
+            f.write(config_content)
+        
+        # Limpiar puertos
+        os.system("pkill -f mitmdump 2>/dev/null")
+        os.system("lsof -ti:8888 | xargs kill -9 2>/dev/null")
+        os.system("lsof -ti:8082 | xargs kill -9 2>/dev/null")
+        
+        # Limpiar cache
+        cache_dir = os.path.join(os.path.dirname(__file__), "stream_interceptor", "cache")
+        os.system(f"rm -rf {cache_dir}/* 2>/dev/null")
+        
+        # Configurar proxy del sistema
+        self.log_msg("Configurando proxy del sistema...", "info")
+        os.system("networksetup -setwebproxy Wi-Fi 127.0.0.1 8082")
+        os.system("networksetup -setsecurewebproxy Wi-Fi 127.0.0.1 8082")
+        os.system("networksetup -setwebproxystate Wi-Fi on")
+        os.system("networksetup -setsecurewebproxystate Wi-Fi on")
+        
+        # Iniciar mitmdump en una terminal separada
+        main_path = os.path.join(os.path.dirname(__file__), "stream_interceptor", "main.py")
+        
+        # Crear script temporal para ejecutar en Terminal
+        script_path = os.path.join(os.path.dirname(__file__), "stream_interceptor", "run_interceptor.sh")
+        with open(script_path, 'w') as f:
+            f.write(f'''#!/bin/bash
+echo "🎬 Stream Interceptor iniciado..."
+echo "   Proxy: 127.0.0.1:8082"
+echo "   Kodi: {self.device['ip']}:{self.device['port']}"
+echo "   Abre tu navegador y carga la película"
+echo ""
+mitmdump -s "{main_path}" --listen-port 8082 --quiet
+''')
+        os.system(f"chmod +x {script_path}")
+        
+        # Abrir en Terminal.app
+        self.interceptor_proc = subprocess.Popen(
+            ["open", "-a", "Terminal", script_path]
+        )
+        self.interceptor_running = True
+        self.stream_ready = True  # Siempre listo cuando está corriendo
+        
+        self.btn_start.config(state="disabled")
+        self.btn_stop.config(state="normal")
+        self.status_dot.config(fg=GREEN)
+        self.status_lbl.config(text="Interceptor activo")
+        self.stream_status.config(text="✅ Listo para enviar", fg=GREEN)
+        self.btn_send.config(state="normal")  # Siempre activo
+        
+        self.log_msg("Interceptor iniciado", "ok")
+        self.log_msg(f"Kodi: {self.device['ip']}:{self.device['port']}", "info")
+        self.log_msg("Abre tu navegador y carga la película", "info")
+        self.log_msg("Presiona ENVIAR A KODI cuando el video cargue", "info")
+    
+    def _read_output(self):
+        while self.interceptor_running and self.interceptor_proc:
+            try:
+                line = self.interceptor_proc.stdout.readline()
+                if not line:
+                    break
+                line = line.decode('utf-8', errors='ignore').strip()
+                if not line:
+                    continue
+                
+                if "Stream #" in line and "listo" in line:
+                    self.stream_ready = True
+                    self.after(0, self._stream_detected)
+                elif "SUB-MANIFIESTO" in line and "VIDEO" in line:
+                    self.after(0, lambda: self.stream_status.config(text="Stream de video detectado!", fg=ACCENT))
+            except:
+                break
+    
+    def _stream_detected(self):
+        self.stream_status.config(text="✅ Stream listo!", fg=GREEN)
+        self.btn_send.config(state="normal")
+        self.status_lbl.config(text="Stream detectado!")
+        self.log_msg("🎬 Stream listo! Presiona ENVIAR A KODI", "ok")
+    
+    def send_to_kodi(self):
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(("8.8.8.8", 80))
+        local_ip = s.getsockname()[0]
+        s.close()
+        
+        proxy_url = f"http://{local_ip}:8888/live"
+        kodi_request(self.device["ip"], self.device["port"], "Player.Stop", {"playerid": 1})
+        result = kodi_request(self.device["ip"], self.device["port"], "Player.Open", {"item": {"file": proxy_url}})
+        
+        if "result" in result:
+            self.log_msg("✅ Enviado a Kodi!", "ok")
+            self.stream_status.config(text="Reproduciendo...", fg=GREEN)
+        else:
+            self.log_msg(f"Error: {result}", "err")
+    
+    def stop_interceptor(self):
+        if self.interceptor_proc:
+            self.interceptor_proc.terminate()
+            self.interceptor_proc = None
+        self.interceptor_running = False
+        os.system("pkill -f mitmdump 2>/dev/null")
+        
+        # Desconfigurar proxy del sistema
+        self.log_msg("Desconfigurando proxy del sistema...", "info")
+        os.system("networksetup -setwebproxystate Wi-Fi off")
+        os.system("networksetup -setsecurewebproxystate Wi-Fi off")
+        
+        self.btn_start.config(state="normal")
+        self.btn_stop.config(state="disabled")
+        self.btn_send.config(state="disabled")
+        self.status_dot.config(fg=MUTED)
+        self.status_lbl.config(text="Interceptor detenido")
+        self.stream_status.config(text="Esperando stream...", fg=MUTED)
+        self.log_msg("Interceptor detenido", "info")
+    
+    def destroy(self):
+        self.stop_interceptor()
+        super().destroy()
 
 
 if __name__ == "__main__":
