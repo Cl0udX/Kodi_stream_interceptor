@@ -57,11 +57,17 @@ echo "📦 Actualizando Ubuntu..."
 apt update && apt upgrade -y
 
 echo "📦 Instalando dependencias del sistema..."
-apt install -y python3 python3-pip python3-venv git wget curl build-essential libffi-dev libssl-dev
+apt install -y python3 python3-venv git wget curl build-essential libffi-dev libssl-dev libxml2-dev libxslt1-dev
 
-echo "📦 Instalando dependencias de Python..."
-pip3 install --upgrade pip
-pip3 install mitmproxy yt-dlp streamlink
+echo "📦 Creando entorno virtual (PEP 668)..."
+mkdir -p ~/kodiplay
+python3 -m venv ~/kodiplay/venv
+
+echo "📦 Instalando dependencias de Python en venv..."
+source ~/kodiplay/venv/bin/activate
+pip install --upgrade pip setuptools wheel
+pip install mitmproxy yt-dlp streamlink
+deactivate
 
 echo "✅ Ubuntu configurado correctamente"
 UBUNTU_EOF
@@ -99,12 +105,12 @@ if [ -f "$SCRIPT_DIR/kodi_android.py" ]; then
     echo "   ✅ GUI Android copiada"
 fi
 
-# Crear script de inicio para Ubuntu
+# Crear script de inicio para Ubuntu (con venv activado)
 cat > ~/kodiplay/start_ubuntu.sh << 'EOF'
 #!/bin/bash
-# Ejecutar KodiPlay dentro de Ubuntu (proot)
+# Ejecutar KodiPlay dentro de Ubuntu (proot) con venv activado
 cd ~/kodiplay
-proot-distro login ubuntu -- python3 /root/kodiplay/kodi_android.py
+proot-distro login ubuntu -- bash -c "source /root/kodiplay/venv/bin/activate && python3 /root/kodiplay/kodi_android.py"
 EOF
 chmod +x ~/kodiplay/start_ubuntu.sh
 
@@ -112,9 +118,8 @@ chmod +x ~/kodiplay/start_ubuntu.sh
 mkdir -p ~/bin
 cat > ~/bin/kodiplay << 'EOF'
 #!/bin/bash
-# KodiPlay - Ejecutar en Ubuntu (proot)
-cd ~/kodiplay
-proot-distro login ubuntu -- python3 /root/kodiplay/kodi_android.py
+# KodiPlay - Ejecutar en Ubuntu (proot) con venv activado
+proot-distro login ubuntu -- bash -c "source /root/kodiplay/venv/bin/activate && python3 /root/kodiplay/kodi_android.py"
 EOF
 chmod +x ~/bin/kodiplay
 

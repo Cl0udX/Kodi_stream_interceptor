@@ -137,37 +137,60 @@ apt install -y build-essential libffi-dev libssl-dev libxml2-dev libxslt1-dev
 apt install -y git wget curl
 ```
 
-### 4.4 Actualizar pip
+### 4.4 Crear entorno virtual (importante por PEP 668)
+
+Ubuntu 23+ tiene PEP 668 que impide instalar paquetes globalmente con pip. Usamos un entorno virtual:
 
 ```bash
-pip3 install --upgrade pip setuptools wheel
+# Crear directorio para el entorno virtual
+mkdir -p ~/kodiplay
+
+# Crear entorno virtual
+python3 -m venv ~/kodiplay/venv
+
+# Activar entorno virtual
+source ~/kodiplay/venv/bin/activate
 ```
 
-### 4.5 Instalar mitmproxy
+El prompt cambiará a algo como:
+```
+(venv) root@localhost:~/kodiplay#
+```
+
+### 4.5 Instalar dependencias en el entorno virtual
 
 ```bash
-pip3 install mitmproxy
+# Actualizar pip dentro del venv
+pip install --upgrade pip setuptools wheel
+
+# Instalar mitmproxy
+pip install mitmproxy
 ```
 
 **Esto puede tardar 5-10 minutos** porque compila módulos. Paciencia.
 
 Si falla, intenta:
 ```bash
-pip3 install mitmproxy --no-cache-dir
+pip install mitmproxy --no-cache-dir
 ```
-
-### 4.6 Instalar yt-dlp y streamlink
 
 ```bash
-pip3 install yt-dlp streamlink
+# Instalar yt-dlp y streamlink
+pip install yt-dlp streamlink
 ```
 
-### 4.7 Verificar instalaciones
+### 4.6 Verificar instalaciones
 
 ```bash
 python3 --version
 mitmdump --version
 yt-dlp --version
+```
+
+### 4.7 Desactivar entorno virtual
+
+```bash
+deactivate
 ```
 
 ### 4.8 Salir de Ubuntu
@@ -218,11 +241,13 @@ proot-distro login ubuntu -- cp -r /data/data/com.termux/files/home/kodiplay/* /
 
 ### 6.1 Crear script en Termux
 
+El script debe activar el entorno virtual antes de ejecutar:
+
 ```bash
 cat > ~/bin/kodiplay << 'EOF'
 #!/bin/bash
 echo "🎬 Iniciando KodiPlay..."
-proot-distro login ubuntu -- python3 /root/kodiplay/kodi_android.py
+proot-distro login ubuntu -- bash -c "source /root/kodiplay/venv/bin/activate && python3 /root/kodiplay/kodi_android.py"
 EOF
 
 chmod +x ~/bin/kodiplay
@@ -386,35 +411,50 @@ apt clean  # dentro de Ubuntu
 ## 📝 Resumen de Comandos
 
 ```bash
-# En Termux
+# === EN TERMUX ===
 pkg update && pkg upgrade -y
 pkg install -y git wget curl proot-distro
 proot-distro install ubuntu
 
-# En Ubuntu (proot-distro login ubuntu)
+# === EN UBUNTU (proot-distro login ubuntu) ===
 apt update && apt upgrade -y
-apt install -y python3 python3-pip build-essential libffi-dev libssl-dev
-pip3 install --upgrade pip
-pip3 install mitmproxy yt-dlp streamlink
+apt install -y python3 python3-venv build-essential libffi-dev libssl-dev
+
+# Crear y activar entorno virtual
+mkdir -p ~/kodiplay
+python3 -m venv ~/kodiplay/venv
+source ~/kodiplay/venv/bin/activate
+
+# Instalar dependencias en el venv
+pip install --upgrade pip setuptools wheel
+pip install mitmproxy yt-dlp streamlink
+
+# Verificar
+mitmdump --version
+deactivate
 exit
 
-# En Termux
+# === EN TERMUX ===
 git clone https://github.com/Cl0udX/Kodi_stream_interceptor.git
 mkdir -p ~/kodiplay
 cp -r ~/Kodi_stream_interceptor/stream_interceptor ~/kodiplay/
 cp ~/Kodi_stream_interceptor/android/kodi_android.py ~/kodiplay/
 
-# Crear script de inicio
-mkdir -p ~/bin
-cat > ~/bin/kodiplay << 'EOF'
-#!/bin/bash
-proot-distro login ubuntu -- python3 /root/kodiplay/kodi_android.py
-EOF
-chmod +x ~/bin/kodiplay
-
 # Copiar a Ubuntu
 proot-distro login ubuntu -- mkdir -p /root/kodiplay
 proot-distro login ubuntu -- cp -r /data/data/com.termux/files/home/kodiplay/* /root/kodiplay/
+
+# Crear script de inicio (con venv activado)
+mkdir -p ~/bin
+cat > ~/bin/kodiplay << 'EOF'
+#!/bin/bash
+proot-distro login ubuntu -- bash -c "source /root/kodiplay/venv/bin/activate && python3 /root/kodiplay/kodi_android.py"
+EOF
+chmod +x ~/bin/kodiplay
+
+# Agregar al PATH
+echo 'export PATH="$HOME/bin:$PATH"' >> ~/.bashrc
+source ~/.bashrc
 
 # Ejecutar
 kodiplay
