@@ -228,19 +228,13 @@ class UniversalInterceptor:
                 proxy_port         = LOCAL_PROXY_PORT,
             )
 
-        # Pre-descargar en background
-        MAX_PREFETCH = 50
-        if seg_urls and len(seg_urls) <= MAX_PREFETCH:
+        # Pre-descargar en background - MÁS AGRESIVO
+        # Descargar todos los segmentos en paralelo para evitar buffering
+        if seg_urls:
+            print(f"   ⚡ Pre-descargando {len(seg_urls)} segmentos en paralelo...")
             threading.Thread(
                 target=prefetch_segments,
-                args=(seg_urls, hdrs_copy, platform.transform_segment),
-                daemon=True
-            ).start()
-        elif seg_urls:
-            print(f"   ⚡ {len(seg_urls)} segmentos — pre-descargando primeros {MAX_PREFETCH}")
-            threading.Thread(
-                target=prefetch_segments,
-                args=(seg_urls[:MAX_PREFETCH], hdrs_copy, platform.transform_segment),
+                args=(seg_urls, hdrs_copy, platform.transform_segment, 10),  # 10 descargas paralelas
                 daemon=True
             ).start()
 
