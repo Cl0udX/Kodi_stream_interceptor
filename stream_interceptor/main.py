@@ -11,12 +11,10 @@ Agregar nuevas plataformas:
 import re
 import socket
 import threading
-import sys
-import select
 
 from mitmproxy import http
 
-from config import LOCAL_PROXY_PORT
+from config import LOCAL_PROXY_PORT, KODI_IP, KODI_PORT
 from kodi import send_to_kodi
 from platforms import PLATFORMS
 from platforms.goodstream import GoodStreamPlatform
@@ -25,13 +23,15 @@ from proxy.cache import prefetch_segments, CACHE_DIR
 from segmentos.server import start as start_proxy, update_state
 
 # ─── Estado global ────────────────────────────────────────────────────────────
-_kodi_notified = False
 _state_lock    = threading.Lock()
 
 # Cache de sub-manifiestos para plataformas con master
 _sub_manifests = {}  # url -> (rewritten, seg_urls, headers)
 _master_info = None  # (master_url, master_rewritten, platform, headers)
-_ready_to_send = threading.Event()
+
+# Contador de streams para identificar cuál enviar
+_stream_counter = 0
+_latest_stream_ready = threading.Event()
 
 def get_local_ip():
     try:
@@ -43,39 +43,62 @@ def get_local_ip():
     except Exception:
         return "127.0.0.1"
 
+def stop_kodi_playback():
+    """Detiene la reproducción actual en Kodi"""
+    import json
+    import urllib.request
+    
+    opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+    
+    # Primero detener cualquier reproducción
+    payload = json.dumps({
+        "jsonrpc": "2.0",
+        "method": "Player.Stop",
+        "params": {"playerid": 1},
+        "id": 1
+    }).encode()
+    
+    try:
+        req = urllib.request.Request(
+            f"http://{KODI_IP}:{KODI_PORT}/jsonrpc",
+            payload,
+            {"Content-Type": "application/json"}
+        )
+        opener.open(req, timeout=2)
+    except:
+        pass  # Ignorar errores si no hay reproducción activa
+
 def wait_for_key():
     """Espera a que el usuario presione Enter para enviar a Kodi"""
-    global _kodi_notified
+    global _stream_counter
     
-    print(f"\n⏳ Esperando a que carguen todos los streams...")
-    print(f"   Presiona ENTER cuando estés listo para enviar a Kodi")
-    
-    # Esperar input del usuario
-    try:
-        input()
-    except:
-        pass
-    
-    with _state_lock:
-        if _kodi_notified:
-            return
-        _kodi_notified = True
-    
-    # Enviar a Kodi
-    lip = get_local_ip()
-    proxy_url = f"http://{lip}:{LOCAL_PROXY_PORT}/live"
-    print(f"\n📡 Enviando a Kodi: {proxy_url}")
-    threading.Thread(
-        target=send_to_kodi,
-        args=(proxy_url,),
-        daemon=True
-    ).start()
+    while True:
+        print(f"\n⏳ Stream listo. Presiona ENTER para enviar a Kodi...")
+        
+        # Esperar input del usuario
+        try:
+            input()
+        except:
+            pass
+        
+        # Detener reproducción anterior
+        stop_kodi_playback()
+        
+        # Enviar a Kodi
+        lip = get_local_ip()
+        proxy_url = f"http://{lip}:{LOCAL_PROXY_PORT}/live"
+        print(f"\n📡 Enviando stream a Kodi: {proxy_url}")
+        threading.Thread(
+            target=send_to_kodi,
+            args=(proxy_url,),
+            daemon=True
+        ).start()
 
 # ─── Addon mitmproxy ──────────────────────────────────────────────────────────
 class UniversalInterceptor:
 
     def response(self, flow: http.HTTPFlow):
-        global _kodi_notified, _master_info
+        global _master_info, _stream_counter
 
         url  = flow.request.pretty_url
         code = flow.response.status_code
@@ -130,11 +153,17 @@ class UniversalInterceptor:
             # Guardar el master
             _master_info = (url, rewritten, platform, hdrs_copy)
             
+            # Incrementar contador de streams
+            with _state_lock:
+                _stream_counter += 1
+                current_stream = _stream_counter
+            
             # Contar variantes
             text = content.decode('utf-8', errors='ignore')
             variants = text.count('#EXT-X-STREAM-INF')
             print(f"   📊 {variants} variantes disponibles")
             print(f"   🔗 URLs reescritas para proxy local")
+            print(f"   🎬 Stream #{current_stream} listo")
             
             # Actualizar estado del servidor proxy con el master
             update_state(
@@ -147,11 +176,6 @@ class UniversalInterceptor:
                 proxy_port         = LOCAL_PROXY_PORT,
             )
             
-            # Iniciar thread para esperar input del usuario
-            with _state_lock:
-                if not _kodi_notified:
-                    threading.Thread(target=wait_for_key, daemon=True).start()
-            
             print(f"{'='*60}")
             return
 
@@ -163,28 +187,46 @@ class UniversalInterceptor:
         # Guardar sub-manifiesto en cache
         _sub_manifests[url] = (rewritten, seg_urls, hdrs_copy)
 
-        update_state(
-            manifest_url       = url,
-            manifest_rewritten = rewritten,
-            cdn_token_base     = token_base,
-            captured_headers   = hdrs_copy,
-            platform           = platform,
-        )
-
-        # Detectar si es video o audio por el tamaño de segmentos
+        # Detectar si es video o audio por la URL
         is_audio_only = 'index-a' in url and '-v' not in url
         stream_type = "🎧 AUDIO" if is_audio_only else "🎬 VIDEO"
+        
+        # IMPORTANTE: Solo actualizar estado del proxy si es VIDEO
+        # Los sub-manifiestos de audio NO deben sobrescribir el estado
+        if not is_audio_only:
+            update_state(
+                manifest_url       = url,
+                manifest_rewritten = rewritten,
+                cdn_token_base     = token_base,
+                captured_headers   = hdrs_copy,
+                platform           = platform,
+            )
+        else:
+            print(f"      ⏭️  Audio-only detectado - no actualiza estado del proxy")
+
+        # Incrementar contador de streams
+        with _state_lock:
+            _stream_counter += 1
+            current_stream = _stream_counter
         
         print(f"\n{'='*60}")
         print(f"🎯 SUB-MANIFIESTO [{platform.name}] {stream_type}")
         print(f"   Segmentos: {len(seg_urls)}")
         print(f"   URL: {url[:70]}...")
+        print(f"   🎬 Stream #{current_stream} listo")
         print(f"{'='*60}")
         
-        # Si no hay master (como Netu), iniciar espera de ENTER aquí
-        with _state_lock:
-            if not _kodi_notified and _master_info is None:
-                threading.Thread(target=wait_for_key, daemon=True).start()
+        # Si no hay master (como Netu) y es video, actualizar estado para este stream
+        if _master_info is None and not is_audio_only:
+            update_state(
+                manifest_url       = url,
+                manifest_rewritten = rewritten,
+                cdn_token_base     = token_base,
+                captured_headers   = hdrs_copy,
+                platform           = platform,
+                local_ip           = lip,
+                proxy_port         = LOCAL_PROXY_PORT,
+            )
 
         # Pre-descargar en background
         MAX_PREFETCH = 50
@@ -211,6 +253,9 @@ threading.Thread(
     daemon=True
 ).start()
 
+# Iniciar thread para esperar ENTER (corre continuamente)
+threading.Thread(target=wait_for_key, daemon=True).start()
+
 print(f"{'='*60}")
 print(f"🎬 Universal Stream Interceptor")
 print(f"   mitmproxy:    puerto 8082")
@@ -220,7 +265,8 @@ print(f"   Plataformas activas:")
 for p in PLATFORMS:
     print(f"     ✅ {p.name}")
 print(f"")
-print(f"   ⚠️  IMPORTANTE:")
-print(f"   - Espera a que carguen todos los streams")
-print(f"   - Presiona ENTER para enviar a Kodi")
+print(f"   💡 MODO INTERACTIVO:")
+print(f"   - Cada stream nuevo se detecta automáticamente")
+print(f"   - Presiona ENTER para enviar el stream actual a Kodi")
+print(f"   - Presiona ENTER de nuevo para cambiar al siguiente stream")
 print(f"{'='*60}")

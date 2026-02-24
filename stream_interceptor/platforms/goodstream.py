@@ -105,6 +105,9 @@ class GoodStreamPlatform(BasePlatform):
         i = 0
         removed = 0
         
+        # Debug: mostrar todas las URLs encontradas
+        print(f"      🔍 Analizando master.m3u8...")
+        
         while i < len(lines):
             line = lines[i]
             
@@ -113,9 +116,15 @@ class GoodStreamPlatform(BasePlatform):
                 # Verificar la siguiente línea (URL del stream)
                 if i + 1 < len(lines):
                     next_url = lines[i + 1].strip()
+                    
+                    # Debug: mostrar la URL
+                    print(f"      📝 URL encontrada: {next_url[-60:]}")
+                    
                     # Solo audio: index-a1.m3u8 o index-a2.m3u8 (sin -v)
                     # Video+audio: index-v1-a1.m3u8
                     is_audio_only = 'index-a' in next_url and '-v' not in next_url
+                    
+                    print(f"         → ¿Solo audio? {is_audio_only} (index-a: {'index-a' in next_url}, -v: {'-v' in next_url})")
                     
                     if is_audio_only:
                         # Saltar esta línea y la siguiente (URL de solo audio)
@@ -134,5 +143,7 @@ class GoodStreamPlatform(BasePlatform):
         
         if removed > 0:
             print(f"      ✂️  {removed} variantes de audio eliminadas")
+        else:
+            print(f"      ⚠️  No se eliminó ninguna variante - revisar URLs")
         
         return '\n'.join(filtered).encode('utf-8')
