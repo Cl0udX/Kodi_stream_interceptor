@@ -3,6 +3,16 @@
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 MAIN_PY="$SCRIPT_DIR/main.py"
+CACHE_DIR="$SCRIPT_DIR/cache"
+
+# Función para limpiar cache
+clean_cache() {
+    echo "🧹 Limpiando cache..."
+    if [ -d "$CACHE_DIR" ]; then
+        rm -rf "$CACHE_DIR"/*
+        echo "✅ Cache limpiado"
+    fi
+}
 
 # Función para configurar el proxy del sistema
 enable_proxy() {
@@ -55,6 +65,9 @@ if lsof -i:8888 >/dev/null 2>&1; then
     lsof -ti:8888 | xargs kill -9 2>/dev/null
     sleep 1
 fi
+
+# Limpiar cache al inicio
+clean_cache
 
 # Configurar proxy
 enable_proxy
